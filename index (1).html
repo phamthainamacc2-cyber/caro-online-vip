@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>⚔ CARO ONLINE — P2P</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:     #080b14;
+  --surf:   #0d1120;
+  --panel:  #111827;
+  --bdr:    #1e2a44;
+  --bdr2:   #2a3a60;
+  --X:      #ff3d6b;
+  --O:      #3dd6ff;
+  --Xg:     rgba(255,61,107,.18);
+  --Og:     rgba(61,214,255,.18);
+  --gold:   #ffc844;
+  --txt:    #c8d4f0;
+  --muted:  #4a5878;
+  --cell:   38px;
+}
+html,body { height:100%; }
+body {
+  background: var(--bg); color: var(--txt);
+  font-family: 'Rajdhani', sans-serif; font-size: 15px;
+  display: flex; flex-direction: column; align-items: center;
+  overflow-x: hidden;
+}
+body::before {
+  content:''; position:fixed; inset:0; z-index:0; pointer-events:none;
+  background:
+    radial-gradient(ellipse at 15% 25%, rgba(60,80,255,.07) 0%, transparent 55%),
+    radial-gradient(ellipse at 85% 75%, rgba(255,50,100,.06) 0%, transparent 55%),
+    linear-gradient(rgba(20,30,70,.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(20,30,70,.06) 1px, transparent 1px);
+  background-size: auto,auto,42px 42px,42px 42px;
+  animation: bgp 28s linear infinite;
+}
+@keyframes bgp { to { background-position:0 0,0 0,42px 42px,42px 42px; } }
+
+/* Header */
+header {
+  position:sticky; top:0; z-index:100; width:100%;
+  padding:13px 22px;
+  display:flex; align-items:center; justify-content:space-between;
+  background:rgba(8,11,20,.93); backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--bdr);
+}
+.logo {
+  font-family:'Orbitron',monospace; font-weight:900; font-size:1.25rem; letter-spacing:4px;
+  background:linear-gradient(90deg,var(--X),var(--O));
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+}
+.badge {
+  font-family:'Orbitron',monospace; font-size:10px; letter-spacing:1px;
+  padding:4px 12px; border-radius:20px; border:1px solid; transition:all .3s;
+}
+.badge.off  { color:var(--muted); border-color:var(--muted); }
+.badge.conn { color:#44ff88; border-color:#44ff88; box-shadow:0 0 8px rgba(68,255,136,.2); }
+.badge.wait { color:var(--gold); border-color:var(--gold); animation:blk 1.8s infinite; }
+@keyframes blk { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+main {
+  position:relative; z-index:1;
+  width:100%; max-width:960px;
+  padding:24px 14px 48px;
+  display:flex; flex-direction:column; align-items:center; gap:20px;
+}
+
+/* Screens */
+.sc { display:none; flex-direction:column; align-items:center; gap:18px; width:100%; }
+.sc.show { display:flex; }
+
+/* Card */
+.card {
+  background:var(--panel); border:1px solid var(--bdr); border-radius:16px;
+  padding:28px 26px; width:100%; max-width:420px;
+  display:flex; flex-direction:column; gap:14px;
+  position:relative; overflow:hidden;
+  box-shadow:0 10px 40px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.04);
+}
+.card::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:2px;
+  background:linear-gradient(90deg,var(--X),var(--O));
+}
+.ctitle {
+  font-family:'Orbitron',monospace; font-size:10px; letter-spacing:3px;
+  color:var(--muted); text-align:center; text-transform:uppercase;
+}
+
+label { font-size:11px; letter-spacing:2px; color:var(--muted); text-transform:uppercase; }
+input[type=text] {
+  background:rgba(255,255,255,.03); border:1px solid var(--bdr);
+  border-radius:8px; padding:12px 14px; color:var(--txt); width:100%;
+  font-family:'Orbitron',monospace; font-size:16px; letter-spacing:3px;
+  text-align:center; text-transform:uppercase; outline:none; transition:border-color .2s, box-shadow .2s;
+}
+input[type=text]:focus { border-color:var(--O); box-shadow:0 0 0 3px rgba(61,214,255,.1); }
+input[type=text]::placeholder { color:var(--muted); opacity:.4; font-size:13px; }
+
+.btn {
+  padding:12px 18px; border:none; border-radius:8px;
+  font-family:'Orbitron',monospace; font-size:11px; letter-spacing:2px; font-weight:700;
+  cursor:pointer; transition:all .18s; display:flex; align-items:center; justify-content:center; gap:7px;
+}
+.btn:disabled { opacity:.4; cursor:not-allowed !important; transform:none !important; }
+.btn:hover:not(:disabled) { transform:translateY(-1px); }
+.btn-r { background:linear-gradient(135deg,#280812,#501020); color:var(--X); border:1px solid rgba(255,61,107,.25); }
+.btn-r:hover:not(:disabled) { box-shadow:0 4px 18px rgba(255,50,100,.3); }
+.btn-b { background:linear-gradient(135deg,#081828,#103050); color:var(--O); border:1px solid rgba(61,214,255,.25); }
+.btn-b:hover:not(:disabled) { box-shadow:0 4px 18px rgba(61,214,255,.3); }
+.btn-d { background:transparent; color:var(--muted); border:1px solid var(--bdr); }
+.btn-d:hover:not(:disabled) { color:var(--txt); border-color:var(--bdr2); }
+.btn-g { background:linear-gradient(135deg,#281800,#503800); color:var(--gold); border:1px solid rgba(255,200,68,.25); }
+
+.divider {
+  display:flex; align-items:center; gap:10px;
+  font-size:10px; letter-spacing:3px; color:var(--muted);
+}
+.divider::before,.divider::after { content:''; flex:1; height:1px; background:var(--bdr); }
+
+/* Wait */
+.codebox {
+  display:flex; align-items:center; gap:12px;
+  background:rgba(255,255,255,.02); border:1px solid var(--bdr2);
+  border-radius:10px; padding:14px 18px;
+}
+.bigcode {
+  font-family:'Orbitron',monospace; font-weight:900; font-size:30px;
+  letter-spacing:7px; color:var(--gold); text-shadow:0 0 22px rgba(255,200,68,.4);
+  flex:1; text-align:center;
+}
+.copybtn {
+  padding:7px 13px; background:rgba(255,200,68,.08);
+  border:1px solid rgba(255,200,68,.25); border-radius:6px;
+  color:var(--gold); font-family:'Orbitron',monospace; font-size:9px; letter-spacing:1px;
+  cursor:pointer; transition:all .18s; white-space:nowrap;
+}
+.copybtn:hover { background:rgba(255,200,68,.16); }
+.copybtn.ok { color:#44ff88; border-color:#44ff88; }
+
+.dots { display:flex; align-items:center; gap:6px; justify-content:center; color:var(--muted); font-size:12px; }
+.dot { width:6px; height:6px; border-radius:50%; background:var(--gold); display:inline-block; animation:da 1.4s infinite; }
+.dot:nth-child(2){animation-delay:.2s} .dot:nth-child(3){animation-delay:.4s}
+@keyframes da { 0%,80%,100%{transform:scale(.5);opacity:.3} 40%{transform:scale(1);opacity:1} }
+
+/* Game */
+.prow {
+  display:grid; grid-template-columns:1fr 36px 1fr; gap:10px;
+  align-items:center; width:100%;
+}
+.pcard {
+  background:var(--panel); border:1px solid var(--bdr); border-radius:12px;
+  padding:11px 14px; display:flex; align-items:center; gap:11px;
+  transition:border-color .3s, box-shadow .3s; position:relative; overflow:hidden; min-width:0;
+}
+.pcard::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; opacity:0; transition:opacity .3s; }
+.pcard.aX { border-color:var(--X); box-shadow:0 0 18px var(--Xg); }
+.pcard.aX::before { background:var(--X); opacity:1; }
+.pcard.aO { border-color:var(--O); box-shadow:0 0 18px var(--Og); }
+.pcard.aO::before { background:var(--O); opacity:1; }
+.psym { font-family:'Orbitron',monospace; font-weight:900; font-size:22px; line-height:1; flex-shrink:0; }
+.psym.X { color:var(--X); text-shadow:0 0 12px var(--X); }
+.psym.O { color:var(--O); text-shadow:0 0 12px var(--O); }
+.pname { font-size:13px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.pyou  { font-size:10px; color:var(--muted); letter-spacing:1px; }
+.psc   { font-family:'Orbitron',monospace; font-size:19px; font-weight:900; margin-left:auto; flex-shrink:0; }
+.psc.X { color:var(--X); } .psc.O { color:var(--O); }
+.tlbl  { position:absolute; bottom:5px; right:8px; font-family:'Orbitron',monospace; font-size:8px; letter-spacing:1px; opacity:0; transition:opacity .3s; }
+.pcard.aX .tlbl { color:var(--X); opacity:1; } .pcard.aO .tlbl { color:var(--O); opacity:1; }
+.vs { font-family:'Orbitron',monospace; font-weight:900; font-size:12px; color:var(--muted); text-align:center; }
+
+.tmsg {
+  font-family:'Orbitron',monospace; font-size:11px; letter-spacing:2px;
+  text-align:center; min-height:18px; transition:color .3s;
+}
+
+/* Board */
+.bshell {
+  background:var(--panel); border:1px solid var(--bdr); border-radius:14px;
+  padding:10px; position:relative; box-shadow:0 14px 50px rgba(0,0,0,.6);
+}
+#board {
+  display:grid; grid-template-columns:repeat(15,var(--cell));
+  gap:1px; background:var(--bdr); border-radius:6px; overflow:hidden; user-select:none;
+}
+.cell {
+  width:var(--cell); height:var(--cell); background:var(--surf);
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer; font-family:'Orbitron',monospace; font-weight:900; font-size:14px;
+  transition:background .1s; position:relative;
+}
+.cell.e:hover { background:rgba(255,255,255,.05); }
+.cell.X { color:var(--X); text-shadow:0 0 9px rgba(255,61,107,.5); cursor:default; }
+.cell.O { color:var(--O); text-shadow:0 0 9px rgba(61,214,255,.5); cursor:default; }
+.cell.W { background:rgba(255,200,68,.15) !important; box-shadow:inset 0 0 0 1px rgba(255,200,68,.3); animation:wf .4s ease; }
+@keyframes wf { 0%{background:rgba(255,200,68,.5)} 100%{background:rgba(255,200,68,.15)} }
+.cell .p { opacity:0; transform:scale(.2); transition:opacity .1s, transform .16s cubic-bezier(.17,.89,.32,1.28); }
+.cell.X .p,.cell.O .p { opacity:1; transform:scale(1); }
+
+/* Result */
+.rov {
+  display:none; position:absolute; inset:0; z-index:20;
+  background:rgba(5,8,18,.88); backdrop-filter:blur(5px); border-radius:6px;
+  flex-direction:column; align-items:center; justify-content:center; gap:14px;
+}
+.rov.show { display:flex; animation:fi .3s ease; }
+@keyframes fi { from{opacity:0} to{opacity:1} }
+.ricon { font-size:46px; animation:rp .45s cubic-bezier(.17,.89,.32,1.28); }
+@keyframes rp { from{transform:scale(.2)} to{transform:scale(1)} }
+.rhead { font-family:'Orbitron',monospace; font-weight:900; font-size:24px; text-align:center; animation:rp .45s .1s both; }
+.rsub  { color:var(--muted); font-size:13px; letter-spacing:2px; }
+
+/* Chat */
+.chatbox { background:var(--panel); border:1px solid var(--bdr); border-radius:12px; overflow:hidden; width:100%; }
+.chhead { padding:7px 13px; border-bottom:1px solid var(--bdr); font-family:'Orbitron',monospace; font-size:9px; letter-spacing:3px; color:var(--muted); }
+#clog { height:160px; overflow-y:auto; padding:8px 12px; display:flex; flex-direction:column; gap:4px; scrollbar-width:thin; scrollbar-color:var(--bdr) transparent; }
+.cm { font-size:13px; line-height:1.4; word-break:break-word; }
+.cm.sys { color:var(--muted); font-style:italic; font-size:11px; }
+.cm.me .who { color:var(--X); } .cm.th .who { color:var(--O); }
+.crow { display:flex; border-top:1px solid var(--bdr); }
+#cin { flex:1; background:transparent; border:none; outline:none; padding:9px 12px; color:var(--txt); font-family:'Rajdhani',sans-serif; font-size:14px; }
+#cin::placeholder { color:var(--muted); opacity:.5; }
+.sbtn { padding:9px 13px; background:rgba(61,214,255,.05); border:none; border-left:1px solid var(--bdr); color:var(--O); cursor:pointer; font-family:'Orbitron',monospace; font-size:9px; letter-spacing:1px; transition:background .18s; }
+.sbtn:hover { background:rgba(61,214,255,.1); }
+
+/* Layout */
+.glayout { display:grid; grid-template-columns:1fr 200px; gap:16px; width:100%; align-items:start; }
+.side { width:200px; display:flex; flex-direction:column; gap:12px; }
+.ibox { background:var(--panel); border:1px solid var(--bdr); border-radius:12px; padding:13px; font-size:12px; color:var(--muted); line-height:1.9; }
+.ibox b { color:var(--txt); font-size:13px; }
+@media(max-width:700px) { .glayout { grid-template-columns:1fr; } .side { display:none; } :root{--cell:26px;} }
+
+/* Toast */
+#toast {
+  position:fixed; bottom:26px; left:50%; transform:translateX(-50%) translateY(12px);
+  background:var(--panel); border:1px solid var(--bdr2); padding:9px 22px; border-radius:26px;
+  font-family:'Orbitron',monospace; font-size:11px; letter-spacing:2px; color:var(--gold);
+  box-shadow:0 6px 24px rgba(0,0,0,.6); opacity:0; transition:opacity .25s,transform .25s;
+  z-index:999; pointer-events:none; white-space:nowrap;
+}
+#toast.s { opacity:1; transform:translateX(-50%) translateY(0); }
+
+/* Status log */
+#slog { font-size:12px; color:var(--muted); font-family:'Orbitron',monospace; letter-spacing:1px; text-align:center; min-height:16px; }
+
+#confetti { position:fixed; inset:0; pointer-events:none; z-index:50; }
+</style>
+</head>
+<body>
+<canvas id="confetti"></canvas>
+
+<header>
+  <div class="logo">CARO⚔</div>
+  <div id="slog"></div>
+  <div class="badge off" id="badge">○ OFFLINE</div>
+</header>
+
+<main>
+
+  <!-- LOBBY -->
+  <div class="sc show" id="sLobby">
+    <div style="text-align:center;margin-top:6px">
+      <div style="font-family:'Orbitron',monospace;font-size:3rem;font-weight:900;letter-spacing:4px">
+        <span style="color:var(--X);text-shadow:0 0 30px var(--X)">✕</span>
+        <span style="color:var(--muted);font-size:1.6rem;margin:0 10px">vs</span>
+        <span style="color:var(--O);text-shadow:0 0 30px var(--O)">◉</span>
+      </div>
+      <p style="color:var(--muted);font-size:10px;letter-spacing:4px;margin-top:8px">CARO 5 Ô THẮNG · PEER-TO-PEER ONLINE</p>
+    </div>
+
+    <div class="card">
+      <div class="ctitle">NHẬP TÊN CỦA BẠN</div>
+      <input type="text" id="nameIn" placeholder="PLAYER1" maxlength="12">
+
+      <button class="btn btn-r" id="btnCreate" onclick="createRoom()">✦ TẠO PHÒNG MỚI</button>
+      <div class="divider">HOẶC VÀO PHÒNG BẠN</div>
+      <label>Mã phòng (do người tạo gửi)</label>
+      <input type="text" id="codeIn" placeholder="ABCD" maxlength="4"
+        style="font-size:22px;letter-spacing:8px">
+      <button class="btn btn-b" id="btnJoin" onclick="joinRoom()">↗ VÀO PHÒNG</button>
+    </div>
+
+    <div style="max-width:380px;text-align:center;color:var(--muted);font-size:12px;line-height:1.9;letter-spacing:.3px">
+      Dùng công nghệ <b style="color:var(--O)">WebRTC P2P</b> — 2 máy kết nối trực tiếp.<br>
+      Tạo phòng → gửi mã 4 chữ cho bạn → chơi ngay!<br>
+      <span style="color:var(--bdr2)">Không cần server · Không cần đăng ký</span>
+    </div>
+  </div>
+
+  <!-- WAIT -->
+  <div class="sc" id="sWait">
+    <div class="card" style="max-width:420px;text-align:center">
+      <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--gold),#ff8844)"></div>
+      <div class="ctitle">⏳ CHỜ NGƯỜI CHƠI 2</div>
+      <p style="color:var(--muted);font-size:13px;line-height:1.8">
+        Gửi mã này cho bạn. Họ nhập vào ô "<b style="color:var(--O)">Mã phòng</b>" rồi nhấn Vào Phòng.
+      </p>
+      <div class="codebox">
+        <div class="bigcode" id="dispCode">----</div>
+        <button class="copybtn" id="cpBtn" onclick="copyCode()">COPY</button>
+      </div>
+      <div class="dots">
+        <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+        <span style="margin-left:7px">Đang chờ kết nối...</span>
+      </div>
+      <button class="btn btn-d" onclick="leaveRoom()">Hủy</button>
+    </div>
+  </div>
+
+  <!-- GAME -->
+  <div class="sc" id="sGame">
+    <div class="prow">
+      <div class="pcard" id="cY">
+        <div class="psym X" id="sY">✕</div>
+        <div style="min-width:0">
+          <div class="pname" id="nY">YOU</div>
+          <div class="pyou">BẠN</div>
+        </div>
+        <div class="psc X" id="scY">0</div>
+        <div class="tlbl">TURN ▶</div>
+      </div>
+      <div class="vs">VS</div>
+      <div class="pcard" id="cO">
+        <div class="psym O" id="sO">◉</div>
+        <div style="min-width:0">
+          <div class="pname" id="nO">OPP</div>
+          <div class="pyou">ĐỐI THỦ</div>
+        </div>
+        <div class="psc O" id="scO">0</div>
+        <div class="tlbl">TURN ▶</div>
+      </div>
+    </div>
+
+    <div class="tmsg" id="tmsg">—</div>
+
+    <div class="glayout">
+      <div class="bshell">
+        <div id="board"></div>
+        <div class="rov" id="rov">
+          <div class="ricon" id="ri">🏆</div>
+          <div class="rhead" id="rh">THẮNG!</div>
+          <div class="rsub"  id="rs">—</div>
+          <div style="display:flex;gap:10px;margin-top:6px">
+            <button class="btn btn-g" id="rBtn" onclick="sendRematch()">↺ CHƠI LẠI</button>
+            <button class="btn btn-d" onclick="leaveRoom()">← THOÁT</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="side">
+        <div class="ibox">
+          <b>📍 Phòng</b><br>
+          <span id="siRoom" style="font-family:'Orbitron',monospace;color:var(--gold);letter-spacing:3px;font-size:18px">----</span><br><br>
+          <b>📋 Luật chơi</b><br>
+          Nối 5 ô liên tiếp<br>
+          ngang, dọc hoặc chéo.<br><br>
+          <b>🌐 Kết nối</b><br>
+          WebRTC — P2P trực tiếp
+        </div>
+        <div class="chatbox">
+          <div class="chhead">💬 CHAT</div>
+          <div id="clog"></div>
+          <div class="crow">
+            <input id="cin" placeholder="Nhắn gì đó..." maxlength="60"
+              onkeydown="if(event.key==='Enter')sendChat()">
+            <button class="sbtn" onclick="sendChat()">GỬI</button>
+          </div>
+        </div>
+        <button class="btn btn-d" onclick="leaveRoom()" style="width:100%">← THOÁT PHÒNG</button>
+      </div>
+    </div>
+  </div>
+
+</main>
+<div id="toast"></div>
+
+<script>
+const BS = 15, WL = 5;
+
+let myName='', myRole='', roomCode='';
+let peer=null, conn=null;
+let board=[], turn='X', scoreX=0, scoreO=0;
+let nameX='', nameO='';
+let gameOver=false;
+let waitRematch=false;
+let rematchVotes=0;
+
+const ICE = {
+  iceServers:[
+    {urls:'stun:stun.l.google.com:19302'},
+    {urls:'stun:stun1.l.google.com:19302'},
+    {urls:'stun:global.relay.metered.ca:80'},
+    {urls:'turn:global.relay.metered.ca:80',  username:'e0e72a30c22050dbef78c2ad',credential:'J5RMx++V7DvLFiAN'},
+    {urls:'turn:global.relay.metered.ca:443', username:'e0e72a30c22050dbef78c2ad',credential:'J5RMx++V7DvLFiAN'},
+  ]
+};
+
+function genCode() {
+  const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let s=''; for(let i=0;i<4;i++) s+=c[Math.floor(Math.random()*c.length)]; return s;
+}
+
+function createRoom() {
+  const nm=(document.getElementById('nameIn').value.trim().toUpperCase()||'PLAYER1').slice(0,12);
+  myName=nm; myRole='X'; nameX=nm; roomCode=genCode();
+  setStatus('Đang khởi tạo...');
+  setBadge('wait');
+
+  peer = new Peer('caro-'+roomCode, { config: ICE });
+
+  peer.on('open', id => {
+    document.getElementById('dispCode').textContent=roomCode;
+    document.getElementById('siRoom').textContent=roomCode;
+    setSlog('ID: '+id);
+    setStatus('Chờ kết nối...');
+    showSc('sWait');
+  });
+
+  peer.on('connection', c => {
+    conn = c;
+    setupConn();
+  });
+
+  peer.on('error', err => {
+    if(err.type==='unavailable-id') {
+      peer.destroy();
+      createRoom();
+    } else {
+      toast('❌ PeerJS: '+err.message);
+      setStatus('Lỗi: '+err.type);
+    }
+  });
+}
+
+function joinRoom() {
+  const nm=(document.getElementById('nameIn').value.trim().toUpperCase()||'PLAYER2').slice(0,12);
+  const code=document.getElementById('codeIn').value.trim().toUpperCase().slice(0,4);
+  if(code.length!==4){ toast('Nhập đúng 4 ký tự!'); return; }
+  myName=nm; myRole='O'; nameO=nm; roomCode=code;
+  setStatus('Đang kết nối...');
+  setBadge('wait');
+
+  peer = new Peer({ config: ICE });
+
+  peer.on('open', () => {
+    conn = peer.connect('caro-'+code, { reliable:true });
+    setupConn();
+  });
+
+  peer.on('error', err => {
+    toast('❌ '+err.message);
+    setStatus('Lỗi kết nối');
+    setBadge('off');
+  });
+}
+
+function setupConn() {
+  conn.on('open', () => {
+    setBadge('conn');
+    setStatus('Đã kết nối!');
+
+    if(myRole==='O') {
+      send({ type:'join', name:myName });
+      nameX='?';
+      startGame();
+    }
+  });
+
+  conn.on('data', onData);
+
+  conn.on('close', () => {
+    setBadge('off');
+    setStatus('Mất kết nối');
+    toast('⚠️ Đối thủ đã ngắt kết nối!');
+    if(document.getElementById('sGame').classList.contains('show')) {
+      showResult('LEAVE');
+    }
+  });
+
+  conn.on('error', err => {
+    toast('Lỗi kết nối: '+err.message);
+  });
+}
+
+function onData(msg) {
+  switch(msg.type) {
+    case 'join':
+      nameO = msg.name;
+      send({ type:'init', nameX, nameO, board:board.slice(), turn, scoreX, scoreO });
+      startGame();
+      sysMsg('✅ '+nameO+' đã vào!');
+      break;
+
+    case 'init':
+      nameX=msg.nameX; nameO=msg.nameO;
+      board=msg.board; turn=msg.turn; scoreX=msg.scoreX; scoreO=msg.scoreO;
+      gameOver=false; waitRematch=false;
+      buildBoard(); renderAll();
+      sysMsg('🎮 Ván đấu bắt đầu!');
+      showSc('sGame');
+      break;
+
+    case 'move':
+      applyMove(msg.idx, msg.role, false);
+      break;
+
+    case 'chat':
+      appendChat(msg.role, msg.name, msg.text);
+      break;
+
+    case 'rematch_req':
+      rematchVotes++;
+      if(rematchVotes>=2) doRematch();
+      else {
+        sysMsg('🔄 Đối thủ muốn chơi lại...');
+        document.getElementById('rBtn').textContent='▶ ĐỒNG Ý';
+      }
+      break;
+
+    case 'rematch_go':
+      doRematch();
+      break;
+  }
+}
+
+function send(data) {
+  if(conn && conn.open) conn.send(data);
+}
+
+function startGame() {
+  if(myRole==='X') {
+    board=Array(BS*BS).fill('');
+    turn='X'; gameOver=false; waitRematch=false; rematchVotes=0;
+  }
+  document.getElementById('siRoom').textContent=roomCode;
+  buildBoard(); renderAll();
+  document.getElementById('rov').classList.remove('show');
+  showSc('sGame');
+}
+
+function buildBoard() {
+  const el=document.getElementById('board');
+  el.innerHTML='';
+  for(let i=0;i<BS*BS;i++){
+    const c=document.createElement('div');
+    c.className='cell e'; c.dataset.i=i;
+    const p=document.createElement('span'); p.className='p';
+    c.appendChild(p);
+    c.addEventListener('click',()=>makeMove(i));
+    el.appendChild(c);
+  }
+}
+
+function makeMove(i) {
+  if(gameOver) return;
+  if(turn!==myRole) { toast('Không phải lượt của bạn!'); return; }
+  if(board[i]!=='') return;
+  applyMove(i, myRole, true);
+  send({ type:'move', idx:i, role:myRole });
+}
+
+function applyMove(i, role, isMine) {
+  board[i]=role;
+  const wc=checkWin(board,i,role);
+  if(wc) {
+    gameOver=true;
+    if(role==='X') scoreX++; else scoreO++;
+    renderCells(wc);
+    renderScores();
+    showResult(role);
+    const wn=role==='X'?nameX:nameO;
+    sysMsg('🏆 '+wn+' THẮNG!');
+  } else if(board.every(v=>v!=='')) {
+    gameOver=true;
+    renderCells([]);
+    showResult('DRAW');
+    sysMsg('🤝 Hòa!');
+  } else {
+    turn=role==='X'?'O':'X';
+    renderCells([]);
+  }
+  renderAll();
+}
+
+function renderAll() {
+  const yX=myRole==='X', oR=myRole==='X'?'O':'X';
+  document.getElementById('nY').textContent = yX?nameX||myName:nameO||myName;
+  document.getElementById('nO').textContent = yX?nameO||'?':nameX||'?';
+  document.getElementById('sY').textContent = myRole==='X'?'✕':'◉';
+  document.getElementById('sO').textContent = myRole==='X'?'◉':'✕';
+  document.getElementById('sY').className = 'psym '+myRole;
+  document.getElementById('sO').className = 'psym '+oR;
+  renderScores();
+  renderTurn();
+  renderCells([]);
+}
+
+function renderScores() {
+  const yX=myRole==='X';
+  document.getElementById('scY').textContent = yX?scoreX:scoreO;
+  document.getElementById('scO').textContent = yX?scoreO:scoreX;
+  document.getElementById('scY').className='psc '+myRole;
+  document.getElementById('scO').className='psc '+(myRole==='X'?'O':'X');
+}
+
+function renderTurn() {
+  if(gameOver) return;
+  const mt=turn===myRole;
+  const cy=document.getElementById('cY'), co=document.getElementById('cO');
+  cy.className='pcard '+(mt?'a'+myRole:'');
+  co.className='pcard '+(!mt?'a'+(myRole==='X'?'O':'X'):'');
+  const tm=document.getElementById('tmsg');
+  tm.textContent = mt?'⚡ Lượt của bạn!':'⏳ Đợi đối thủ...';
+  tm.style.color = mt?'var(--gold)':'var(--muted)';
+}
+
+function renderCells(winSet) {
+  const ws=new Set(winSet);
+  document.querySelectorAll('#board .cell').forEach((c,i)=>{
+    const v=board[i];
+    const p=c.querySelector('.p');
+    if(v==='X'){ c.className='cell X'+(ws.has(i)?' W':''); p.textContent='✕'; }
+    else if(v==='O'){ c.className='cell O'+(ws.has(i)?' W':''); p.textContent='◉'; }
+    else{ c.className='cell e'; p.textContent=''; }
+  });
+}
+
+function checkWin(b,idx,sym) {
+  const r=Math.floor(idx/BS), col=idx%BS;
+  for(const[dr,dc] of [[0,1],[1,0],[1,1],[1,-1]]) {
+    let cells=[idx];
+    for(let d=1;d<WL;d++){const r2=r+dr*d,c2=col+dc*d;if(r2<0||r2>=BS||c2<0||c2>=BS)break;if(b[r2*BS+c2]!==sym)break;cells.push(r2*BS+c2);}
+    for(let d=1;d<WL;d++){const r2=r-dr*d,c2=col-dc*d;if(r2<0||r2>=BS||c2<0||c2>=BS)break;if(b[r2*BS+c2]!==sym)break;cells.push(r2*BS+c2);}
+    if(cells.length>=WL) return cells.slice(0,WL);
+  }
+  return null;
+}
+
+function showResult(w) {
+  const ov=document.getElementById('rov');
+  const ri=document.getElementById('ri'),rh=document.getElementById('rh'),rs=document.getElementById('rs'),rb=document.getElementById('rBtn');
+  if(w==='DRAW')     { ri.textContent='🤝'; rh.textContent='HÒA!';          rh.style.color='#aabbff'; rs.textContent='Không ai thắng'; }
+  else if(w===myRole){ ri.textContent='🏆'; rh.textContent='CHIẾN THẮNG!';  rh.style.color='var(--gold)'; rs.textContent='Xuất sắc!'; spawnConfetti(); }
+  else if(w==='LEAVE'){ ri.textContent='🚪'; rh.textContent='ĐỐI THỦ RỜI'; rh.style.color='var(--muted)'; rs.textContent='Phòng đã đóng'; rb.style.display='none'; }
+  else               { ri.textContent='💀'; rh.textContent='THUA RỒI!';     rh.style.color='var(--X)'; rs.textContent='Cố lên lần sau!'; }
+  rb.style.display=''; rb.disabled=false; rb.textContent='↺ CHƠI LẠI';
+  ov.classList.add('show');
+  document.getElementById('tmsg').textContent='';
+}
+
+function sendRematch() {
+  rematchVotes++;
+  send({ type:'rematch_req' });
+  document.getElementById('rBtn').textContent='⏳ CHỜ ĐỐI THỦ...';
+  document.getElementById('rBtn').disabled=true;
+  if(rematchVotes>=2) doRematch();
+}
+function doRematch() {
+  rematchVotes=0; waitRematch=false;
+  if(myRole==='X') {
+    board=Array(BS*BS).fill(''); turn='X'; gameOver=false;
+    send({ type:'init', nameX, nameO, board:board.slice(), turn, scoreX, scoreO });
+    startGame();
+  } else {
+    gameOver=false;
+    document.getElementById('rov').classList.remove('show');
+    buildBoard(); renderAll();
+  }
+  sysMsg('🔄 Ván mới bắt đầu!');
+}
+
+function sendChat() {
+  const inp=document.getElementById('cin'); const t=inp.value.trim(); if(!t) return; inp.value='';
+  appendChat(myRole, myName, t);
+  send({ type:'chat', role:myRole, name:myName, text:t });
+}
+function appendChat(role, name, text) {
+  const log=document.getElementById('clog');
+  const d=document.createElement('div');
+  const isMe=role===myRole;
+  d.className='cm '+(isMe?'me':'th');
+  d.innerHTML=`<span class="who">${esc(name)}</span>: ${esc(text)}`;
+  log.appendChild(d); log.scrollTop=log.scrollHeight;
+}
+function sysMsg(t) {
+  const log=document.getElementById('clog');
+  const d=document.createElement('div'); d.className='cm sys'; d.textContent=t;
+  log.appendChild(d); log.scrollTop=log.scrollHeight;
+}
+function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function leaveRoom() {
+  send({ type:'bye' });
+  if(conn){ conn.close(); conn=null; }
+  if(peer){ peer.destroy(); peer=null; }
+  myName=''; myRole=''; roomCode='';
+  board=[]; nameX=''; nameO=''; scoreX=0; scoreO=0;
+  document.getElementById('clog').innerHTML='';
+  setBadge('off'); setSlog(''); setStatus('');
+  showSc('sLobby');
+}
+
+function copyCode() {
+  navigator.clipboard.writeText(roomCode).catch(()=>{});
+  const b=document.getElementById('cpBtn');
+  b.textContent='✓ COPIED'; b.classList.add('ok');
+  setTimeout(()=>{ b.textContent='COPY'; b.classList.remove('ok'); },2500);
+  toast('✅ Đã copy mã: '+roomCode);
+}
+
+function showSc(id) { document.querySelectorAll('.sc').forEach(s=>s.classList.remove('show')); document.getElementById(id).classList.add('show'); }
+function setBadge(s) {
+  const b=document.getElementById('badge');
+  const m={off:['off','○ OFFLINE'],wait:['wait','◌ CONNECTING'],conn:['conn','● ONLINE']};
+  const [cls,lbl]=m[s]||m.off; b.className='badge '+cls; b.textContent=lbl;
+}
+function setSlog(t) { document.getElementById('slog').textContent=t; }
+function setStatus(t) { setSlog(t); }
+
+let tt;
+function toast(m) {
+  const t=document.getElementById('toast'); t.textContent=m; t.classList.add('s');
+  clearTimeout(tt); tt=setTimeout(()=>t.classList.remove('s'),3000);
+}
+
+const cv=document.getElementById('confetti'), cx=cv.getContext('2d'); let px=[];
+function resize(){ cv.width=innerWidth; cv.height=innerHeight; }
+resize(); addEventListener('resize',resize);
+function spawnConfetti() {
+  for(let i=0;i<90;i++) px.push({x:Math.random()*cv.width,y:-10,vx:(Math.random()-.5)*5,vy:1.5+Math.random()*4,c:`hsl(${Math.random()*360},100%,65%)`,sz:4+Math.random()*6,r:Math.random()*360,rv:(Math.random()-.5)*8,life:180});
+  requestAnimationFrame(anim);
+}
+function anim() {
+  cx.clearRect(0,0,cv.width,cv.height); px=px.filter(p=>p.life>0);
+  px.forEach(p=>{ p.x+=p.vx; p.y+=p.vy; p.vy+=.07; p.r+=p.rv; p.life--;
+    cx.save(); cx.globalAlpha=Math.min(1,p.life/40); cx.translate(p.x,p.y); cx.rotate(p.r*Math.PI/180);
+    cx.fillStyle=p.c; cx.fillRect(-p.sz/2,-p.sz/2,p.sz,p.sz); cx.restore();
+  });
+  if(px.length) requestAnimationFrame(anim);
+}
+
+document.getElementById('codeIn').addEventListener('keydown',e=>{ if(e.key==='Enter') joinRoom(); });
+document.getElementById('nameIn').addEventListener('keydown',e=>{ if(e.key==='Enter'){ if(document.getElementById('codeIn').value.trim()) joinRoom(); else createRoom(); } });
+</script>
+</body>
+</html>
